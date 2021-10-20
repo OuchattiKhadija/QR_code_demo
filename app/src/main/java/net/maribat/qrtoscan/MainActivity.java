@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -22,6 +23,12 @@ import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+
 public class MainActivity extends AppCompatActivity {
 
     public final static int QRCodeWidth = 500;
@@ -31,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     TextInputEditText firstName_ed, lastName_ed, age_ed;
     LinearLayout layout_btns_code;
     ImageView codeQr_img;
+    String tockentoSave;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,16 +53,40 @@ public class MainActivity extends AppCompatActivity {
         layout_btns_code = findViewById(R.id.qr_code_linear_layout);
         codeQr_img = findViewById(R.id.qr_code_image);
 
+        //Declaration Builder & Converter
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("https://qrscanner-mongodb-api.herokuapp.com/api/v1/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        //insert data into the Inerface
+        ApiInterface apiInterface = retrofit.create(ApiInterface.class);
+
+
         sendData_btn.setOnClickListener(view -> {
             layout_btns_code.setVisibility(View.VISIBLE);
+            User user = new User(firstName_ed.getText().toString(),lastName_ed.getText().toString(), Integer.parseInt(age_ed.getText().toString().trim()));
+            Call<User> call3 = apiInterface.storeUser(user);
+            call3.enqueue(new Callback<User>() {
+                @Override
+                public void onResponse(Call<User> call, Response<User> response) {
+                   tockentoSave =  response.body().getId() ;
+                    Log.i("TAG", "onResponse: " + tockentoSave);
+                }
+
+                @Override
+                public void onFailure(Call<User> call, Throwable t) {
+                    Toast.makeText(MainActivity.this,t.getMessage(),Toast.LENGTH_LONG).show();
+                }
+            });
         });
 
         generateDr_btn.setOnClickListener(view -> {
-            if (firstName_ed.getText().toString().trim().length() == 0) {
+            if (tockentoSave.length() == 0) {
                 Toast.makeText(MainActivity.this, "Enter Text", Toast.LENGTH_SHORT).show();
             } else {
                 try {
-                    bitmap = textToImageEncode(firstName_ed.getText().toString());
+                    bitmap = textToImageEncode(tockentoSave);
                     codeQr_img.setVisibility(View.VISIBLE);
                     codeQr_img.setImageBitmap(bitmap);
                     saveQr_btn.setVisibility(View.VISIBLE);
